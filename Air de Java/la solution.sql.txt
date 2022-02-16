@@ -1,0 +1,294 @@
+C14 - PROGRAMMER DANS LE LANGAGE DU SGBD
+
+
+--FUNCTION
+
+alter FUNCTION fn_re_controler2(@datePassage datetime, @heurePassage time(7))
+RETURNS char(250)
+as
+begin
+DECLARE @month9 datetime = MONTH(@datePassage)
+DECLARE @month6 datetime = MONTH(@datePassage)
+DECLARE @daylimite datetime = day(@datePassage)
+	RETURN
+	CASE 
+	when (@month9 = 9 or  @month6 = 6 ) and ( @daylimite >= 15 ) THEN 'true'	
+	WHEN (DATENAME(dw,@datePassage) = 'samedi' or DATENAME(dw,@datePassage) =  'dimanche' or DATENAME(dw,@datePassage)= 'vendredi')
+	and( @heurePassage >= CONVERT(TIME, '12:00:00.0000000')and (@heurePassage <= CONVERT(TIME, '19:00:00.0000000')))THEN 'true'
+	ELSE 'flase'
+	END
+end
+go
+
+DECLARE @timeFrom time(7) =  CAST('18:00:00.0000000' AS TIME(7))
+DECLARE @timedate datetime = '20210819 00:00:00.000'; 
+
+
+
+
+
+
+-----trigger ca maeche pas 
+
+alter trigger trg_suppression_passage ON PASSAGE
+		for DELETE
+		as 
+		begin
+		declare @PASSID int
+		set @PASSID = (select PASSID from deleted);
+		delete from REPRESENTATION where PASSID = @PASSID
+		end
+		
+
+	--- trg_suppression3  GROUPE
+delete from GROUPE where CDGROUP = 3
+
+
+	alter trigger trg_suppression3 ON GROUPE
+
+		instead of delete
+		AS
+		BEGIN 
+		
+
+	DECLARE supprimerGroupe CURSOR
+
+    FOR select CDGROUP from deleted
+	declare @CDGROUP as int
+    open supprimerGroupe
+
+	fetch next from supprimerGroupe into @CDGROUP
+
+    while @@FETCH_STATUS=0
+
+    begin   
+		delete from REPRESENTER where CDGROUP = @CDGROUP
+		delete from PASSAGE where CDGROUP = @CDGROUP
+		delete from REPERTORIE where CDGROUP = @CDGROUP
+		delete from OCCUPE where CDGROUP = @CDGROUP
+		delete from [EST MEMBRE DE] where CDGROUP = @CDGROUP
+	fetch next from supprimerGroupe into @CDGROUP
+
+    end
+
+    close supprimerGroupe
+    deallocate supprimerGroupe
+
+	END
+
+
+
+	------
+	--trigger oeuvre
+
+	create trigger trg_suppression_oeuvre ON [Air de Java].[dbo].[TITRE _ CHANSON]
+
+		instead of delete
+		AS
+		BEGIN 
+		
+
+	DECLARE supprimer_oeuvre CURSOR
+
+    FOR select CDTITRE from deleted
+	declare @CDTITRE as int
+    open supprimer_oeuvre
+
+	fetch next from supprimer_oeuvre into @CDTITRE
+
+    while @@FETCH_STATUS=0
+
+    begin   
+
+		delete from REPERTORIE where CDTITRE = @CDTITRE
+		delete from REPRESENTATION where CDTITRE = @CDTITRE
+		delete from NECESSITE where CDTITRE = @CDTITRE
+		delete from [EST AUTEUR DE] where CDTITRE = @CDTITRE
+		fetch next from supprimer_oeuvre into  @CDTITRE
+
+    end
+
+    close supprimer_oeuvre
+    deallocate supprimer_oeuvre
+
+	END
+
+
+---procédures stockées 
+
+
+create PROCEDURE group_nonPartcicper(@P_NMREN varchar(20))
+AS
+begin
+ 
+declare @CDREN int = (select CDREN from RENCONTRE 
+where NMREN = @P_NMREN)
+
+select GROUPE.CDGROUP,GROUPE.NMGROUP from PASSAGE
+inner join GROUPE
+on PASSAGE.CDGROUP =  GROUPE.CDGROUP
+inner join RENCONTRE
+on RENCONTRE.CDREN = PASSAGE.CDREN
+where RENCONTRE.CDREN <> @CDREN
+
+end
+
+
+execute group_nonPartcicper 'CANAL SOLEIL'
+
+
+
+alter PROCEDURE avoirLasteInsert
+AS
+begin
+SELECT MAX (CDREN) as LastID FROM RENCONTRE
+end
+go
+ 
+
+ execute avoirLasteInsert
+--
+
+
+
+
+
+INSERT [dbo].[RENCONTRE] ([CDREN], [PERCD], [PERIOID], [NMREN], [LIEUREN], [DATDEBREN], [DATFINREN], [NBPERREN]) VALUES (16, 6, 10, N'VIEILLES CHARRUES', N'BREST',, 2200)
+--
+
+
+
+alter trigger tgr_insertPASSAGE ON PASSAGE
+		for insert
+		AS
+		BEGIN 
+	DECLARE Cr_insertRencontre CURSOR
+
+    FOR select DATPASSGR, HDEBPASSGR from inserted
+	declare @DATPASSGR as datetime
+	declare @HDEBPASSGR as time(7)
+	declare @condtion as char(10)
+    open Cr_insertRencontre
+
+	fetch next from Cr_insertRencontre into @DATPASSGR,@HDEBPASSGR
+
+    while @@FETCH_STATUS=0
+
+    begin   
+
+	set @condtion = (select [Air de Java].[dbo].[fn_re_controler2](@DATPASSGR, @HDEBPASSGR))
+	if @condtion = 'flase'
+		begin
+		ROLLBACK
+		end
+	else
+
+	begin
+	fetch next from Cr_insertRencontre into @DATPASSGR,@HDEBPASSGR
+	end
+
+    end
+
+    close Cr_insertRencontre
+    deallocate Cr_insertRencontre
+	
+	END
+
+
+	
+begin tran trann_insertPASSAGE
+
+begin try
+
+INSERT [dbo].[PASSAGE] ([PASSID], [CDGROUP], [CDREN], [DATPASSGR], [HDEBPASSGR], [HFINPASSGR], [LIEUPASSGR]) VALUES (32, 19, 1,(CAST('20210820 00:00:00.000' AS datetime)),(CAST('18:00:00.0000000' AS TIME)),(CAST('18:00:00.0000000' AS TIME)), N'Salle des Fêtes Vandoeuvre')
+INSERT [dbo].[PASSAGE] ([PASSID], [CDGROUP], [CDREN], [DATPASSGR], [HDEBPASSGR], [HFINPASSGR], [LIEUPASSGR]) VALUES (33, 19, 1,(CAST('20210720 00:00:00.000' AS datetime)),(CAST('18:00:00.0000000' AS TIME)),(CAST('18:00:00.0000000' AS TIME)), N'Salle des Fêtes Vandoeuvre')
+INSERT [dbo].[PASSAGE] ([PASSID], [CDGROUP], [CDREN], [DATPASSGR], [HDEBPASSGR], [HFINPASSGR], [LIEUPASSGR]) VALUES (34, 19, 1,(CAST('20210819 00:00:00.000' AS datetime)),(CAST('18:00:00.0000000' AS TIME)),(CAST('18:00:00.0000000' AS TIME)), N'Salle des Fêtes Vandoeuvre')
+INSERT [dbo].[PASSAGE] ([PASSID], [CDGROUP], [CDREN], [DATPASSGR], [HDEBPASSGR], [HFINPASSGR], [LIEUPASSGR]) VALUES (35, 19, 1,(CAST('20210811 00:00:00.000' AS datetime)),(CAST('18:00:00.0000000' AS TIME)),(CAST('18:00:00.0000000' AS TIME)), N'Salle des Fêtes Vandoeuvre')
+INSERT [dbo].[PASSAGE] ([PASSID], [CDGROUP], [CDREN], [DATPASSGR], [HDEBPASSGR], [HFINPASSGR], [LIEUPASSGR]) VALUES (36, 19, 1,(CAST('20210830 00:00:00.000' AS datetime)),(CAST('18:00:00.0000000' AS TIME)),(CAST('18:00:00.0000000' AS TIME)), N'Salle des Fêtes Vandoeuvre')
+INSERT [dbo].[PASSAGE] ([PASSID], [CDGROUP], [CDREN], [DATPASSGR], [HDEBPASSGR], [HFINPASSGR], [LIEUPASSGR]) VALUES (38, 19, 1,(CAST('20210801 00:00:00.000' AS datetime)),(CAST('18:00:00.0000000' AS TIME)),(CAST('18:00:00.0000000' AS TIME)), N'Salle des Fêtes Vandoeuvre')
+
+commit tran trann_insertPASSAGE
+end try
+
+begin catch
+print ('err tran annuleé')
+ROLLBACK tran trann_insertPASSAGE
+end catch
+
+
+les interrogation sont :
+
+--1
+
+select GROUPE.NMGROUP, [TITRE _ CHANSON].NMTITRE
+from GROUPE
+inner join PASSAGE
+on PASSAGE.CDGROUP = GROUPE.CDGROUP
+inner join REPRESENTATION
+on REPRESENTATION.PASSID = PASSAGE.PASSID
+inner join [TITRE _ CHANSON]
+on [TITRE _ CHANSON].CDTITRE = REPRESENTATION.CDTITRE
+where [TITRE _ CHANSON].NMTITRE =  'A means to an end';
+
+--2
+
+select distinct RENCONTRE.NMREN from RENCONTRE
+inner join PASSAGE
+on PASSAGE.CDREN = RENCONTRE.CDREN
+inner join REPRESENTATION
+on REPRESENTATION.PASSID = PASSAGE.PASSID
+WHERE EXISTS (select REPRESENTATION.CDTITRE from REPRESENTATION)
+
+--3
+
+select PERNM,[PERNM],RENCONTRE.NMREN from PERSONNE
+inner join SPE
+on SPE.PERCD = PERSONNE.PERCD
+inner join SPECIALITE
+on SPECIALITE.CDSPE = SPE.CDSPE
+inner join RENCONTRE
+on PERSONNE.PERCD = RENCONTRE.PERCD
+where NMSPE = 'soliste' and NMREN = 'NUIT DE NACRE'
+
+--4
+
+DECLARE  @timeFrom time(7) = '05:34:54.00';
+select distinct [TITRE _ CHANSON].NMTITRE from [TITRE _ CHANSON],PASSAGE
+inner join REPRESENTATION
+on REPRESENTATION.PASSID = PASSAGE.PASSID
+inner join GROUPE
+on GROUPE.CDGROUP = PASSAGE.CDGROUP
+inner join REPRESENTER
+on GROUPE.CDGROUP = REPRESENTER.CDGROUP
+inner join REGION
+on REGION.CDREG = REPRESENTER.CDREG 
+inner join PAYS
+on PAYS.PAYSID = REGION.PAYSID
+where REGION.NMREG = 'Autriche de l''Est' and [TITRE _ CHANSON].TPSTITRE > @timeFrom or PAYS.PAYSLIB = 'Espagne' and [TITRE _ CHANSON].TPSTITRE > @timeFrom 
+
+--5
+
+select  NMREN from PASSAGE
+inner join RENCONTRE
+on PASSAGE.CDREN = RENCONTRE.CDREN
+GROUP BY NMREN
+having COUNT(CDGROUP) = 4
+
+
+
+--6
+
+select distinct NMREN  from RENCONTRE
+inner join PASSAGE
+on PASSAGE.CDREN =  RENCONTRE.CDREN
+inner join REPRESENTATION
+on REPRESENTATION.PASSID = PASSAGE.PASSID
+inner join [TITRE _ CHANSON]
+on [TITRE _ CHANSON].CDTITRE = REPRESENTATION.CDTITRE
+inner join NECESSITE
+on NECESSITE.CDTITRE = [TITRE _ CHANSON].CDTITRE
+inner join INSTRUMENT 
+on INSTRUMENT.CDINSTU = NECESSITE.CDINSTU
+where NMINSTRU = 'Orgue'
+
+
